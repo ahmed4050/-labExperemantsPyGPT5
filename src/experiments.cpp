@@ -7,7 +7,7 @@
 extern KalmanFilter axFilter;
 extern KalmanFilter ayFilter;
 extern KalmanFilter azFilter;
-extern void playSound(int freq, int duration); // مؤقتاً (سيُزال لاحقاً بعد استبدال كامل)
+// (أزيل playSound القديم بعد اعتماد نظام Sound الحدثي)
 #include "sound.hpp"
 
 // الثوابت العامة

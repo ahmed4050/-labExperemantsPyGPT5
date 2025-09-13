@@ -15,9 +15,7 @@ KalmanFilter axFilter;
 KalmanFilter ayFilter; 
 KalmanFilter azFilter;
 
-// نظام الصوت غير الحاجز: هيكل الحالة global حتى تستخدمه loop مبكراً
-struct PendingTone { int freq = 0; unsigned long endMs = 0; bool active = false; };
-PendingTone _toneState; 
+// (أزيل الهيكل القديم لإدارة نغمة واحدة بعد اعتماد Sound::update)
 
 // =================================================================
 // إعدادات الشبكات
@@ -48,8 +46,7 @@ void handleMainPage(), handleProjectilePage(), handlePendulumPage(), handleFreef
 void handleSimProjectilePage(), handleSimPendulumPage(), handleSimFreefallPage(), handleSimFrictionPage();
 void handleStart(), handleReset(), handleResults(), handleSimProjectileCalc(), handleSimPendulumCalc(), handleSimFreefallCalc();
 void calibrateIMU();
-// الحفاظ مؤقتاً على playSound كغلاف لتوافق جزئي حتى إتمام النقل
-void playSound(int freq, int duration);
+// (تمت إزالة playSound legacy – كل الأصوات الآن عبر Sound::trigger)
 void setupWifiManager(), loadCredentials(), saveCredentials();
 void resetInternalState();
 void enterLowPowerMode();
@@ -138,11 +135,7 @@ void setup() {
 void loop() {
     M5.update();
 
-  // إدارة إيقاف النغمة غير الحاجزة
-  if (_toneState.active && millis() >= _toneState.endMs) {
-    M5.Speaker.stop();
-    _toneState.active = false;
-  }
+  // الصوت يُدار الآن بالكامل في Sound::update()
 
     if (M5.BtnB.wasHold()) {
         M5.Display.fillScreen(BLUE);
@@ -771,14 +764,7 @@ void resetInternalState() {
     Serial.println("--- Internal State Reset ---");
 }
 
-void playSound(int freq, int duration) {
-  if (freq <= 0 || duration <= 0) return;
-  M5.Speaker.setVolume(255);
-  M5.Speaker.tone(freq);
-  _toneState.freq = freq;
-  _toneState.endMs = millis() + (unsigned long)duration;
-  _toneState.active = true;
-}
+// (حذف دالة playSound القديمة)
 
 void calibrateIMU() {
     float az_sum = 0.0;
