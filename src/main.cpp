@@ -45,6 +45,7 @@ const int CALIBRATION_SAMPLES = 200; // الجاذبية المعرفة في exp
 void handleMainPage(), handleProjectilePage(), handlePendulumPage(), handleFreefallPage(), handleFrictionPage();
 void handleSimProjectilePage(), handleSimPendulumPage(), handleSimFreefallPage(), handleSimFrictionPage();
 void handleStart(), handleReset(), handleResults(), handleSimProjectileCalc(), handleSimPendulumCalc(), handleSimFreefallCalc();
+void handleBatteryInfo();
 void calibrateIMU();
 // (تمت إزالة playSound legacy – كل الأصوات الآن عبر Sound::trigger)
 void setupWifiManager(), loadCredentials(), saveCredentials();
@@ -123,6 +124,7 @@ void setup() {
         server.on("/start", HTTP_GET, handleStart);
         server.on("/reset", HTTP_GET, handleReset);
         server.on("/results", HTTP_GET, handleResults);
+        server.on("/battery", HTTP_GET, handleBatteryInfo);
         server.begin();
 
         resetInternalState();
@@ -354,10 +356,28 @@ void handleMainPage() {
       }
       .help-btn { left: 25px; }
       .mute-btn { right: 25px; }
+      .battery-info {
+        right: 75px;
+        width: auto;
+        min-width: 80px;
+        padding: 0 10px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        cursor: default;
+        background: rgba(76, 175, 80, 0.2);
+      }
+      .battery-info.low { background: rgba(244, 67, 54, 0.2); }
+      .battery-info.charging { background: rgba(255, 193, 7, 0.2); }
       .top-icon:hover {
         background: rgba(63, 81, 181, 0.4);
         transform: scale(1.1);
       }
+      .battery-info:hover {
+        transform: none;
+        background: rgba(76, 175, 80, 0.3);
+      }
+      .battery-info.low:hover { background: rgba(244, 67, 54, 0.3); }
+      .battery-info.charging:hover { background: rgba(255, 193, 7, 0.3); }
       footer {
         margin-top: 40px;
         font-size: 0.9rem;
@@ -438,6 +458,10 @@ void handleMainPage() {
     <div class="container">
       <div class="help-btn top-icon" onmouseover="playHoverSound()" onclick="openHelpModal(event)">ℹ️</div>
       <div id="muteBtn" class="mute-btn top-icon" onmouseover="playHoverSound()" onclick="toggleMute(event)">🔊</div>
+      <div id="batteryInfo" class="battery-info top-icon" style="right: 75px;">
+        <span id="batteryIcon">🔋</span>
+        <span id="batteryLevel">--</span>%
+      </div>
       <h1>المختبر الفيزيائي التفاعلي</h1>
       <div class="main-container">
         <div class="column">
@@ -537,7 +561,47 @@ void handleMainPage() {
         }
       }
 
-      document.addEventListener('DOMContentLoaded', updateMuteButton);
+      document.addEventListener('DOMContentLoaded', function() {
+        updateMuteButton();
+        updateBatteryInfo();
+        // تحديث معلومات البطارية كل 30 ثانية
+        setInterval(updateBatteryInfo, 30000);
+      });
+
+      function updateBatteryInfo() {
+        fetch('/battery')
+          .then(response => response.json())
+          .then(data => {
+            const batteryInfo = document.getElementById('batteryInfo');
+            const batteryIcon = document.getElementById('batteryIcon');
+            const batteryLevel = document.getElementById('batteryLevel');
+            
+            batteryLevel.textContent = data.level;
+            
+            // تحديد أيقونة البطارية حسب المستوى
+            let icon = '🔋';
+            batteryInfo.className = 'battery-info top-icon';
+            
+            if (data.charging) {
+              icon = '⚡';
+              batteryInfo.classList.add('charging');
+            } else if (data.level <= 20) {
+              icon = '🪫';
+              batteryInfo.classList.add('low');
+            } else if (data.level <= 50) {
+              icon = '🔋';
+            } else {
+              icon = '🔋';
+            }
+            
+            batteryIcon.textContent = icon;
+            batteryInfo.title = `الجهد: ${data.voltage}V - ${data.charging ? 'يشحن' : 'لا يشحن'}`;
+          })
+          .catch(error => {
+            console.error('Error fetching battery info:', error);
+            document.getElementById('batteryLevel').textContent = '--';
+          });
+      }
 
       function openHelpModal(e) {
         e.preventDefault();
@@ -562,7 +626,7 @@ void handleMainPage() {
 void handleProjectilePage() {
     resetInternalState();
     String html = R"rawliteral(
-    <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تجربة المقذوفات</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔬</text></svg>"><style>body{font-family:'Segoe UI',sans-serif;text-align:center;margin:20px;background-color:#f0f2f5;}.container{max-width:600px;margin:auto;padding:20px;background-color:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.1);}h1,h2{color:#1a237e;}h3{color:#3f51b5;}input,button{padding:12px;margin:10px;font-size:16px;border-radius:8px;border:1px solid #ddd;}input{width:120px;text-align:center;}button{background-color:#3f51b5;color:#fff;border:none;cursor:pointer;transition:background-color .3s,transform .1s;}button:hover{background-color:#303f9f;}#resetBtn{background-color:#d32f2f;}#resetBtn:hover{background-color:#c62828;}.card{background-color:#f8f9fa;border-right:5px solid #3f51b5;padding:15px;margin:15px 0;border-radius:5px 0 0 5px;text-align:right;display:flex;justify-content:space-between;align-items:center;}.result-label{font-size:1.1em;color:#555;}.result-value{font-weight:700;color:#1a237e;font-size:1.2em;}.instructions{background-color:#fff8e1;border-right:5px solid #ffc107;padding:15px;margin:20px 0;border-radius:5px 0 0 5px;text-align:right;}.hidden{display:none;}a.back-link{display:inline-block;margin-top:20px;color:#555;text-decoration:none;}.what-if{background:#e0f2f1;border:1px solid #b2dfdb;padding:15px;margin-top:25px;border-radius:8px;}</style></head><body><div class="container"><h1>تجربة المقذوفات</h1><div id="inputSection"><h3>الخطوة 1: قياس السرعة الابتدائية</h3><form id="expForm"><div><label>الكتلة (كجم):</label><input type="number" step="0.01" id="mass" value="0.2" required></div><div><label>زاوية الإطلاق (°):</label><input type="number" id="angle" value="45" required></div><button type="button" onmouseover="playHoverSound()" onclick="startExperiment()">ابدأ التجربة</button></form></div><div id="waitingMsg" class="instructions hidden"><h2>🚀 استعد للقذف ...</h2><p>1. قم بقذف الجهاز لقياس سرعة الإطلاق.</p><p>2. حاول أن يكون مكان نزول الجهاز آمن.</p><p>3. ستظهر النتائج تلقائياً.</p></div><div id="results" class="hidden"><h2>📊 النتائج المحسوبة</h2><div class="card"><span class="result-label">السرعة الابتدائية المقاسة (V₀)</span><span class="result-value"><span id="v0">--</span> م/ث</span></div><div class="card"><span class="result-label">زاوية الإطلاق (θ)</span><span class="result-value"><span id="angle_res">--</span> °</span></div><div class="card" style="border-right-color:#4caf50"><span class="result-label">أقصى ارتفاع (h)</span><span class="result-value"><span id="sim_h">--</span> متر</span></div><div class="card" style="border-right-color:#2196f3"><span class="result-label">المدى الأفقي (R)</span><span class="result-value"><span id="sim_r">--</span> متر</span></div><div class="card" style="border-right-color:#ff9800"><span class="result-label">زمن التحليق (T)</span><span class="result-value"><span id="sim_t">--</span> ثانية</span></div></div><button id="resetBtn" onmouseover="playHoverSound()" onclick="resetExperiment()" class="hidden">إعادة التجربة</button><a href="/" onmouseover="playHoverSound()" class="back-link">&larr; العودة للقائمة الرئيسية</a></div><script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script><script>let resultInterval;const synth=new Tone.Synth().toDestination();function playHoverSound(){try{Tone.context.state!=="running"&&Tone.context.resume(),synth.triggerAttackRelease("C5","8n")}catch(t){console.error("Could not play sound",t)}}function startExperiment(){const t=document.getElementById("mass").value,e=document.getElementById("angle").value;if(!t||t<=0||!e&&0>e)return void alert("الرجاء إدخال قيم صحيحة.");document.getElementById("inputSection").classList.add("hidden"),document.getElementById("waitingMsg").classList.remove("hidden"),document.getElementById("results").classList.add("hidden"),document.getElementById("resetBtn").classList.add("hidden"),fetch(`/start?type=projectile&mass=${t}&angle=${e}`).then(t=>{if(!t.ok)throw new Error("Network response was not ok");return t.text()}).then(t=>{console.log("Experiment start request sent:",t),resultInterval=setInterval(checkResults,500)}).catch(t=>{console.error("Error starting experiment:",t),alert("حدث خطأ في بدء التجربة."),resetExperiment()})}function checkResults(){fetch("/results").then(t=>t.json()).then(t=>{"projectile"==t.type&&"done"===t.status&&(clearInterval(resultInterval),document.getElementById("waitingMsg").classList.add("hidden"),document.getElementById("results").classList.remove("hidden"),document.getElementById("resetBtn").classList.remove("hidden"),document.getElementById("v0").textContent=t.v0.toFixed(2),document.getElementById("angle_res").textContent=t.angle.toFixed(1),document.getElementById("sim_h").textContent=t.max_height.toFixed(2),document.getElementById("sim_r").textContent=t.range.toFixed(2),document.getElementById("sim_t").textContent=t.time.toFixed(2))}).catch(t=>{console.error("Error fetching results:",t),clearInterval(resultInterval)})}function resetExperiment(){location.reload();}</script></body></html>
+    <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تجربة المقذوفات</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔬</text></svg>"><style>body{font-family:'Segoe UI',sans-serif;text-align:center;margin:20px;background-color:#f0f2f5;}.container{max-width:600px;margin:auto;padding:20px;background-color:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.1);position:relative;}h1,h2{color:#1a237e;}h3{color:#3f51b5;}input,button{padding:12px;margin:10px;font-size:16px;border-radius:8px;border:1px solid #ddd;}input{width:120px;text-align:center;}button{background-color:#3f51b5;color:#fff;border:none;cursor:pointer;transition:background-color .3s,transform .1s;}button:hover{background-color:#303f9f;}#resetBtn{background-color:#d32f2f;}#resetBtn:hover{background-color:#c62828;}.card{background-color:#f8f9fa;border-right:5px solid #3f51b5;padding:15px;margin:15px 0;border-radius:5px 0 0 5px;text-align:right;display:flex;justify-content:space-between;align-items:center;}.result-label{font-size:1.1em;color:#555;}.result-value{font-weight:700;color:#1a237e;font-size:1.2em;}.instructions{background-color:#fff8e1;border-right:5px solid #ffc107;padding:15px;margin:20px 0;border-radius:5px 0 0 5px;text-align:right;}.hidden{display:none;}a.back-link{display:inline-block;margin-top:20px;color:#555;text-decoration:none;}.what-if{background:#e0f2f1;border:1px solid #b2dfdb;padding:15px;margin-top:25px;border-radius:8px;}.battery-info{position:absolute;top:20px;right:20px;background:rgba(76,175,80,0.2);padding:8px 12px;border-radius:15px;font-size:0.9rem;color:#333;}.battery-info.low{background:rgba(244,67,54,0.2);}.battery-info.charging{background:rgba(255,193,7,0.2);}</style></head><body><div class="container"><div id="batteryInfo" class="battery-info"><span id="batteryIcon">🔋</span> <span id="batteryLevel">--</span>%</div><h1>تجربة المقذوفات</h1><div id="inputSection"><h3>الخطوة 1: قياس السرعة الابتدائية</h3><form id="expForm"><div><label>الكتلة (كجم):</label><input type="number" step="0.01" id="mass" value="0.2" required></div><div><label>زاوية الإطلاق (°):</label><input type="number" id="angle" value="45" required></div><button type="button" onmouseover="playHoverSound()" onclick="startExperiment()">ابدأ التجربة</button></form></div><div id="waitingMsg" class="instructions hidden"><h2>🚀 استعد للقذف ...</h2><p>1. قم بقذف الجهاز لقياس سرعة الإطلاق.</p><p>2. حاول أن يكون مكان نزول الجهاز آمن.</p><p>3. ستظهر النتائج تلقائياً.</p></div><div id="results" class="hidden"><h2>📊 النتائج المحسوبة</h2><div class="card"><span class="result-label">السرعة الابتدائية المقاسة (V₀)</span><span class="result-value"><span id="v0">--</span> م/ث</span></div><div class="card"><span class="result-label">زاوية الإطلاق (θ)</span><span class="result-value"><span id="angle_res">--</span> °</span></div><div class="card" style="border-right-color:#4caf50"><span class="result-label">أقصى ارتفاع (h)</span><span class="result-value"><span id="sim_h">--</span> متر</span></div><div class="card" style="border-right-color:#2196f3"><span class="result-label">المدى الأفقي (R)</span><span class="result-value"><span id="sim_r">--</span> متر</span></div><div class="card" style="border-right-color:#ff9800"><span class="result-label">زمن التحليق (T)</span><span class="result-value"><span id="sim_t">--</span> ثانية</span></div></div><button id="resetBtn" onmouseover="playHoverSound()" onclick="resetExperiment()" class="hidden">إعادة التجربة</button><a href="/" onmouseover="playHoverSound()" class="back-link">&larr; العودة للقائمة الرئيسية</a></div><script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script><script>let resultInterval;const synth=new Tone.Synth().toDestination();function playHoverSound(){try{Tone.context.state!=="running"&&Tone.context.resume(),synth.triggerAttackRelease("C5","8n")}catch(t){console.error("Could not play sound",t)}}function updateBatteryInfo(){fetch('/battery').then(response=>response.json()).then(data=>{const batteryInfo=document.getElementById('batteryInfo');const batteryIcon=document.getElementById('batteryIcon');const batteryLevel=document.getElementById('batteryLevel');batteryLevel.textContent=data.level;let icon='🔋';batteryInfo.className='battery-info';if(data.charging){icon='⚡';batteryInfo.classList.add('charging');}else if(data.level<=20){icon='🪫';batteryInfo.classList.add('low');}else if(data.level<=50){icon='🔋';}else{icon='🔋';}batteryIcon.textContent=icon;batteryInfo.title=`الجهد: ${data.voltage}V - ${data.charging?'يشحن':'لا يشحن'}`;}).catch(error=>{console.error('Error fetching battery info:',error);document.getElementById('batteryLevel').textContent='--';});}document.addEventListener('DOMContentLoaded',function(){updateBatteryInfo();setInterval(updateBatteryInfo,30000);});function startExperiment(){const t=document.getElementById("mass").value,e=document.getElementById("angle").value;if(!t||t<=0||!e&&0>e)return void alert("الرجاء إدخال قيم صحيحة.");document.getElementById("inputSection").classList.add("hidden"),document.getElementById("waitingMsg").classList.remove("hidden"),document.getElementById("results").classList.add("hidden"),document.getElementById("resetBtn").classList.add("hidden"),fetch(`/start?type=projectile&mass=${t}&angle=${e}`).then(t=>{if(!t.ok)throw new Error("Network response was not ok");return t.text()}).then(t=>{console.log("Experiment start request sent:",t),resultInterval=setInterval(checkResults,500)}).catch(t=>{console.error("Error starting experiment:",t),alert("حدث خطأ في بدء التجربة."),resetExperiment()})}function checkResults(){fetch("/results").then(t=>t.json()).then(t=>{"projectile"==t.type&&"done"===t.status&&(clearInterval(resultInterval),document.getElementById("waitingMsg").classList.add("hidden"),document.getElementById("results").classList.remove("hidden"),document.getElementById("resetBtn").classList.remove("hidden"),document.getElementById("v0").textContent=t.v0.toFixed(2),document.getElementById("angle_res").textContent=t.angle.toFixed(1),document.getElementById("sim_h").textContent=t.max_height.toFixed(2),document.getElementById("sim_r").textContent=t.range.toFixed(2),document.getElementById("sim_t").textContent=t.time.toFixed(2))}).catch(t=>{console.error("Error fetching results:",t),clearInterval(resultInterval)})}function resetExperiment(){location.reload();}</script></body></html>
     )rawliteral";
     server.send(200, "text/html", html);
 }
@@ -739,6 +803,20 @@ void handleSimFreefallCalc() {
     }
     float time = sqrt((2.0 * distance) / GRAVITY_CONST);
     String json = "{\"time\":" + String(time, 4) + "}";
+    server.send(200, "application/json", json);
+}
+
+void handleBatteryInfo() {
+    float batteryVoltage = M5.Power.getBatteryVoltage() / 1000.0; // تحويل من millivolts إلى volts
+    int batteryLevel = M5.Power.getBatteryLevel(); // النسبة المئوية
+    bool isCharging = M5.Power.isCharging();
+    
+    String json = "{";
+    json += "\"voltage\":" + String(batteryVoltage, 2) + ",";
+    json += "\"level\":" + String(batteryLevel) + ",";
+    json += "\"charging\":" + String(isCharging ? "true" : "false");
+    json += "}";
+    
     server.send(200, "application/json", json);
 }
 
